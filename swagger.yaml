@@ -1,0 +1,550 @@
+openapi: 3.0.0
+info:
+  title: GameHub API
+  version: 1.0.0
+  description: |
+    API REST pour gérer joueurs, jeux et sessions de jeu.
+    Projet M2 Développement Web Services - Ynov Rouen.
+    Authentification JWT, CRUD complet, stats avec Top 5.
+  contact:
+    name: @_Karismatique
+    url: https://github.com/karismatique
+
+servers:
+  - url: http://localhost:3000/api
+    description: Développement local
+  - url: https://gamehub-api-ynov.onrender.com/api
+    description: Production (Render)
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  schemas:
+    Player:
+      type: object
+      properties:
+        _id:
+          type: string
+          example: 60d21b4667d0d8992e610c85
+        username:
+          type: string
+          example: NeoGamer
+        email:
+          type: string
+          format: email
+          example: neo@gamehub.com
+        role:
+          type: string
+          enum: [player, admin]
+          example: player
+        totalScore:
+          type: integer
+          minimum: 0
+          example: 18450
+      required:
+        - username
+        - email
+        - role
+        - totalScore
+
+    Game:
+      type: object
+      properties:
+        _id:
+          type: string
+          example: 60d21b4667d0d8992e610c86
+        title:
+          type: string
+          example: Cyber Quest 2077
+        genre:
+          type: string
+          example: RPG
+        releaseYear:
+          type: integer
+          example: 2020
+      required:
+        - title
+        - genre
+
+    Session:
+      type: object
+      properties:
+        _id:
+          type: string
+          example: 60d21b4667d0d8992e610c87
+        player:
+          $ref: '#/components/schemas/Player'
+        game:
+          $ref: '#/components/schemas/Game'
+        score:
+          type: integer
+          minimum: 0
+          example: 4200
+        duration:
+          type: integer
+          description: Durée en minutes
+          minimum: 1
+          example: 68
+        playedAt:
+          type: string
+          format: date-time
+          example: 2025-11-03T14:22:10.123Z
+      required:
+        - player
+        - game
+        - score
+        - duration
+
+    Stats:
+      type: object
+      properties:
+        totalPlayers:
+          type: integer
+          example: 10
+        totalGames:
+          type: integer
+          example: 8
+        totalSessions:
+          type: integer
+          example: 50
+        top5:
+          type: array
+          items:
+            type: object
+            properties:
+              username:
+                type: string
+              totalScore:
+                type: integer
+          example:
+            - username: BlazePhoenix
+              totalScore: 24500
+            - username: NeoGamer
+              totalScore: 18450
+
+    Error:
+      type: object
+      properties:
+        message:
+          type: string
+          example: Joueur non trouvé
+
+  parameters:
+    page:
+      name: page
+      in: query
+      schema:
+        type: integer
+        minimum: 1
+        default: 1
+      description: Numéro de page
+    limit:
+      name: limit
+      in: query
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 100
+        default: 10
+      description: Nombre d'éléments par page
+    playerId:
+      name: player
+      in: query
+      schema:
+        type: string
+      description: Filtrer par joueur (ID)
+    gameId:
+      name: game
+      in: query
+      schema:
+        type: string
+      description: Filtrer par jeu (ID)
+
+security:
+  - bearerAuth: []
+
+paths:
+  /auth/register:
+    post:
+      summary: Inscription d'un joueur
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                username:
+                  type: string
+                  minLength: 3
+                email:
+                  type: string
+                  format: email
+                password:
+                  type: string
+                  minLength: 6
+              required:
+                - username
+                - email
+                - password
+      responses:
+        '201':
+          description: Joueur créé
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                  player:
+                    $ref: '#/components/schemas/Player'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+
+  /auth/login:
+    post:
+      summary: Connexion
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                email:
+                  type: string
+                  format: email
+                password:
+                  type: string
+              required:
+                - email
+                - password
+      responses:
+        '200':
+          description: Connexion réussie
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  token:
+                    type: string
+                  player:
+                    $ref: '#/components/schemas/Player'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /players:
+    get:
+      summary: Liste des joueurs
+      parameters:
+        - $ref: '#/components/parameters/page'
+        - $ref: '#/components/parameters/limit'
+      responses:
+        '200':
+          description: Liste paginée des joueurs
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  players:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Player'
+                  pagination:
+                    type: object
+                    properties:
+                      page:
+                        type: integer
+                      limit:
+                        type: integer
+                      total:
+                        type: integer
+                      pages:
+                        type: integer
+    post:
+      summary: Créer un joueur (admin)
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                username:
+                  type: string
+                email:
+                  type: string
+                password:
+                  type: string
+              required:
+                - username
+                - email
+                - password
+      responses:
+        '201':
+          description: Joueur créé
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+  /players/{id}:
+    get:
+      summary: Détail d'un joueur
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Joueur trouvé
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Player'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    put:
+      summary: Mettre à jour un joueur (admin)
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                username:
+                  type: string
+                email:
+                  type: string
+                password:
+                  type: string
+      responses:
+        '200':
+          description: Joueur mis à jour
+        '403':
+          $ref: '#/components/responses/Forbidden'
+    delete:
+      summary: Supprimer un joueur (admin)
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Joueur supprimé
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+  /games:
+    get:
+      summary: Liste des jeux
+      parameters:
+        - $ref: '#/components/parameters/page'
+        - $ref: '#/components/parameters/limit'
+      responses:
+        '200':
+          description: Liste paginée
+    post:
+      summary: Créer un jeu (admin)
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Game'
+      responses:
+        '201':
+          description: Jeu créé
+
+  /games/{id}:
+    get:
+      summary: Détail d'un jeu
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Jeu trouvé
+    put:
+      summary: Mettre à jour un jeu (admin)
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Game'
+      responses:
+        '200':
+          description: Jeu mis à jour
+    delete:
+      summary: Supprimer un jeu (admin)
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Jeu supprimé
+
+  /sessions:
+    post:
+      summary: Créer une session (joueur)
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                playerId:
+                  type: string
+                gameId:
+                  type: string
+                score:
+                  type: integer
+                duration:
+                  type: integer
+              required:
+                - playerId
+                - gameId
+                - score
+                - duration
+      responses:
+        '201':
+          description: Session créée + totalScore mis à jour
+    get:
+      summary: Liste des sessions
+      parameters:
+        - $ref: '#/components/parameters/page'
+        - $ref: '#/components/parameters/limit'
+        - $ref: '#/components/parameters/playerId'
+        - $ref: '#/components/parameters/gameId'
+      responses:
+        '200':
+          description: Sessions filtrées et paginées
+
+  /sessions/{id}:
+    get:
+      summary: Détail d'une session
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Session trouvée
+    put:
+      summary: Mettre à jour une session
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                score:
+                  type: integer
+                duration:
+                  type: integer
+      responses:
+        '200':
+          description: Session mise à jour + totalScore ajusté
+    delete:
+      summary: Supprimer une session (admin)
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Session supprimée + totalScore ajusté
+
+  /stats:
+    get:
+      summary: Statistiques globales
+      responses:
+        '200':
+          description: Stats + Top 5 joueurs
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Stats'
+
+  # Réponses génériques
+  /components/responses:
+    BadRequest:
+      description: Requête invalide
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    Unauthorized:
+      description: Non authentifié
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    Forbidden:
+      description: Accès refusé (admin requis)
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    NotFound:
+      description: Ressource non trouvée
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
