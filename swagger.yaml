@@ -13,7 +13,7 @@ info:
 servers:
   - url: http://localhost:3000/api
     description: Développement local
-  - url: https://gamehub-api-ynov.onrender.com/api
+  - url: https://api-gamehub.onrender.com/api
     description: Production (Render)
 
 components:
