@@ -28,7 +28,17 @@ setupSwagger(app);
 app.use(errorHandler);
 
 const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => {
-  console.log(`🚀 API GameHub sur http://localhost:${PORT}`);
-  console.log(`📚 Docs: http://localhost:${PORT}/api-docs`);
-});
+
+let server;
+
+if (process.env.NODE_ENV !== 'test') {
+  server = app.listen(PORT, () => {
+    console.log(`🚀 API GameHub sur http://localhost:${PORT}`);
+    console.log(`📚 Docs: http://localhost:${PORT}/api-docs`);
+  });
+} else {
+  // En mode test, on ne lance PAS listen(), on exporte juste app
+  server = app;
+}
+
+module.exports = server; // IMPORTANT : on exporte server OU app selon le mode
